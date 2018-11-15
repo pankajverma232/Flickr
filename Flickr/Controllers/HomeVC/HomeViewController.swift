@@ -8,91 +8,72 @@
 
 import UIKit
 
-class HomeViewController: UIViewController, UICollectionViewDataSource, UICollectionViewDelegate, UISearchResultsUpdating, UITextFieldDelegate{
+class HomeViewController: UIViewController{
     
-    @IBOutlet weak var collectionView: UICollectionView!
-    
-    let  cellIdentifier = "ImageCell";
-    var searchText:String = ""{
-        willSet(newText) {
-            flickrUrlString = FlickrUrlManager.getSearchUrlForText(text: newText)
-            imageCache.deleteAllRecords()
-            loadTotalPhotos()
-        }
-    }
-    var flickrUrlString = FlickrUrlManager.defaultSearchUrl
-    
-    var photos: [Photo] = []{
-        didSet {
-            collectionView.reloadData()
-        }
-    }
-    var limit = 24
-    var totalPhotos: [Photo] = []
-    var startIndex = 0
-    var resultSearchController = UISearchController()
-    
-    lazy var imageCache:ImageCache = ImageCache()
-    var photoDownloadTask:URLSessionDataTask?
-    
-    
-    //MARK:- UICollectionViewDataSource
-    func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        return photos.count
-    }
-    func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
-        
-        let cell = collectionView.dequeueReusableCell(withReuseIdentifier: cellIdentifier, for: indexPath) as! ImageCell
-        cell.configure(with: photos[indexPath.row])
-        return cell;
-    }
-    
-    //MARK:- UICollectionViewDelegate
-//    func collectionView(_ collectionView: UICollectionView, willDisplay cell: UICollectionViewCell, forItemAt indexPath: IndexPath) {
-//        if indexPath.row == photos.count - 1 {
-//            //last cell, load more...
-//            copyNextRecordsFromTotalPhotos()
-//            self.collectionView.reloadData()
-//        }
-//    }
-  
-    func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-        let detailsVC = DetailsViewController()
-        detailsVC.photo = photos[indexPath.row]
-        self.navigationController?.pushViewController(detailsVC, animated: true)
-    }
-    
-    //MARK:- UISearchResultsUpdating
-    func updateSearchResults(for searchController: UISearchController) {
-        //filteredResult.removeAll(keepingCapacity: false)
-       isQualifiedTextForSearch(text: searchController.searchBar.text!)
-    }
-    func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
-        
-        let set = NSCharacterSet.alphanumerics.inverted
-        return string.rangeOfCharacter(from: set) == nil
-        
-    }
-    func isQualifiedTextForSearch(text:String) -> Void {
-        
-            //minimum 3 char required to call API
-        if (text.count < 2){
-            return
-        }
-        searchText = text
-    }
+    @IBOutlet weak var collectionView: UICollectionView!{
+        didSet{
+            fetchedResultsController = FetchedResultsController(action: { [unowned self] (action) in
+                FetchedResultActionHandler(collectionView: self.collectionView).handelAction(action)
+            })
                 
+            //datasource
+            self.imageDataSource = ViewDataSource(fetchedResultsController: self.fetchedResultsController)
+            self.collectionView.dataSource = self.imageDataSource
+                
+            //delegate
+            self.viewDelegate = ViewDelegate(completion: { (indexPath, action) in
+                switch action{
+                    case .display:
+                        if indexPath.row == (self.fetchedResultsController.fetchedResultsController.fetchedObjects?.count ?? 0) - 1{
+                            self.fetchedResultsController.fetchedResultsController.fetchRequest.fetchLimit += 15
+                        do {
+                            try self.fetchedResultsController.fetchedResultsController.performFetch() //now fetchedResultsController has data. It knows about  sections, rows and items initial data to show in view
+                        } catch {
+                            fatalError("Failed to initialize FetchedResultsController: \(error)")
+                    }
+                }
+                    case .select:
+                        let destination = DetailsViewController()
+//                        let indexPaths = self.collectionView.indexPathsForSelectedItems
+                        let selectedObject = self.fetchedResultsController.objectAtIndexPath(indexPath: indexPath) 
+                        destination.url = selectedObject.url
+                    self.navigationController?.pushViewController(destination, animated: true)
+                }
+            })
+            self.collectionView.delegate = viewDelegate
+        }
+    }
+    
+
+    var resultSearchController = UISearchController()
+    let  cellIdentifier = "ImageCell";
+    
+    var imageDataSource:ViewDataSource!
+    var viewDelegate:ViewDelegate?
+    var searchDelegate:SearchDelegate?
+    var downloadManager:DownloadManager = DownloadManager()
+    var flowLayout:CustomFlowLayout = CustomFlowLayout()
+    var fetchedResultsController:FetchedResultsController!
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         collectionView.register(UINib.init(nibName: cellIdentifier, bundle: nil), forCellWithReuseIdentifier: cellIdentifier)
+        downloadManager.loadPosters()
+        setResultSearchController()
+       collectionView.collectionViewLayout = flowLayout
         
-        collectionView.dataSource = self
-        collectionView.delegate = self
-        collectionView.collectionViewLayout = CustomFlowLayout()
-        loadTotalPhotos()
+
+    }
+    
+ 
+    func setResultSearchController() -> Void {
+        
+        searchDelegate = SearchDelegate(onInput:{[unowned self] searchText in
+            self.downloadManager.searchText = searchText
+        } )
         self.resultSearchController = ({
             let controller = UISearchController(searchResultsController: nil)
-            controller.searchResultsUpdater = self
+            controller.searchResultsUpdater = searchDelegate
             controller.dimsBackgroundDuringPresentation = false
             controller.searchBar.sizeToFit()
             controller.hidesNavigationBarDuringPresentation = false;
@@ -104,54 +85,47 @@ class HomeViewController: UIViewController, UICollectionViewDataSource, UICollec
         })()
     }
     
-    func loadTotalPhotos() -> Void {
-        startIndex = 0
-        guard let flickrUrl = URL(string: flickrUrlString) else { return }
-        //cancell active task(if any) first since it's of no use now
-        photoDownloadTask?.cancel()
-        photoDownloadTask = URLSession.shared.dataTask(with: flickrUrl) { (data, response
-            , error) in
-            guard let data = data else { return }
-            do {
-                let decoder = JSONDecoder()
-                
-                let root = try decoder.decode(Root.self, from: data)
-                DispatchQueue.main.async { [unowned self] in
-                    if let receivedphotos = root.subPhotos?.photos{
-//                        self.totalPhotos = receivedphotos
-//                        self.copyNextRecordsFromTotalPhotos()
-                       
-                        self.photos = receivedphotos;
-                    }
-                }
-            } catch let err {
-                print("Err", err)
-            }
-            }
-        photoDownloadTask?.resume()
-    }
     
     
     
-//    func copyNextRecordsFromTotalPhotos() -> Void {
-//        if startIndex >= totalPhotos.count-1 {
-//            return
-//        }
-//        var endIndex = startIndex+limit-1
-//        if(endIndex >= totalPhotos.count){
-//            endIndex = totalPhotos.count - 1
-//        }
-//
-//
-//        photos.append(contentsOf: totalPhotos[startIndex...endIndex])
-//        startIndex += limit
-//
-//
-//
-//
-//        print("new photo count = \(photos.count)")
-//        print("remaining photo count = \(totalPhotos.count)")
-//    }
-//
+    
+    
+    //    func copyNextRecordsFromTotalPhotos() -> Void {
+    //        if startIndex >= totalPhotos.count-1 {
+    //            return
+    //        }
+    //        var endIndex = startIndex+limit-1
+    //        if(endIndex >= totalPhotos.count){
+    //            endIndex = totalPhotos.count - 1
+    //        }
+    //
+    //
+    //        photos.append(contentsOf: totalPhotos[startIndex...endIndex])
+    //        startIndex += limit
+    //
+    //
+    //
+    //
+    //        print("new photo count = \(photos.count)")
+    //        print("remaining photo count = \(totalPhotos.count)")
+    //    }
+    //
+    
+    
+    //    func setCollectionViewDelegate() -> Void {
+    //        viewDelegate = ViewDelegate(onSelection:{[unowned self] indexPath in
+    //            let detailsVC = DetailsViewController()
+    //            detailsVC.photo = self.imageDataSource!.photos[indexPath.row]
+    //            self.navigationController?.pushViewController(detailsVC, animated: true)
+    //            }, onDisplay: {[unowned self] indexPath in
+    //                if indexPath.row == self.imageDataSource!.photos.count - 1 {
+    //                    //last cell, load more...
+    //                    //copyNextRecordsFromTotalPhotos()
+    //                    // self.collectionView.reloadData()
+    //                }
+    //        })
+    //        collectionView.delegate = viewDelegate
+    //    }
+    //
 }
 

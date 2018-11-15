@@ -9,46 +9,30 @@
 import UIKit
 
 class ImageCell: UICollectionViewCell {
-    @IBOutlet weak var imageView: UIImageView!
+    @IBOutlet weak var imageView: AsyncImageView!
+    @IBOutlet weak var activityIndicatorView:UIActivityIndicatorView!
     
-    var imageDownloadTask:URLSessionDataTask?
-    lazy var imageCache:ImageCache = ImageCache()
-    let userQueueName = "flicker"
-    public func configure(with photo: Photo) {
-        
-        let url = FlickrUrlManager.getImageUrlFor(farm: "\(photo.farm ?? 0)", server: photo.server, id: photo.id, secret: photo.secret)
-        loadImage(forUrl: url)
+    var image:UIImage?{
+        didSet{
+            imageView.image = image
+        }
     }
-
+    let downloadManager = DownloadManager()
+    func setImageForUrl(url:String) {
+         activityIndicatorView.startAnimating()
+        image = UIImage(named: K.defaultImageName)
+        downloadManager.downloadImage(forUrl: url) { (data) in
+            DispatchQueue.main.async {
+                self.activityIndicatorView.stopAnimating()
+                if let data = data{
+                    self.image = UIImage(data: data)
+                }
+            }
+        }
+    }
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        downloadManager.imageDownloadTask?.cancel()
+    }
     
-    func loadImage(forUrl imageUrl:String?) -> Void {
-        imageView.image = UIImage(named: K.defaultImageName)
-        guard let imageUrl = imageUrl else{
-            return
-        }
-        if let imgData = imageCache.getImageForKey(imageUrl){
-            //fetched from coredata
-            let image = UIImage(data: imgData)
-            self.imageView.image = image
-            return
-        }
-            //load from server
-            guard let photoUrl = URL(string: imageUrl) else {
-                return
-            }
-            imageDownloadTask = URLSession.shared.dataTask(with: photoUrl) { (data, response
-                , error) in
-                guard let data = data else {
-                    return
-                }
-                
-                DispatchQueue.main.async { [unowned self] in
-                    if(imageUrl == response?.url?.absoluteString){
-                    self.imageView.image = UIImage(data: data)
-                    }
-                    self.imageCache.addImage(data: data, forKey: imageUrl)
-                }
-            }
-            imageDownloadTask?.resume()
-        }
 }

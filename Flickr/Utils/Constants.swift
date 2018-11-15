@@ -14,7 +14,7 @@ struct K {
         static let defaultImageName = "poster"
     
     }
-    
+
 
 struct ApiKey {
     static let method = "method"
@@ -31,7 +31,7 @@ struct DefaultApiKeyValue {
     static let format="json"
     static let nojsoncallback="1"
     static let safe_search="1"
-    static let text="kittens"
+    static let text="Pankaj"
 }
 
 struct PersistenceKey {
@@ -39,3 +39,6 @@ struct PersistenceKey {
     static let url = "url"
 }
 
+//struct ApiThreshold {
+//    static let 
+//}

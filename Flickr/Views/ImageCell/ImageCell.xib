@@ -18,20 +18,31 @@
                 <rect key="frame" x="0.0" y="0.0" width="50" height="50"/>
                 <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
                 <subviews>
-                    <imageView userInteractionEnabled="NO" contentMode="scaleToFill" horizontalHuggingPriority="251" verticalHuggingPriority="251" translatesAutoresizingMaskIntoConstraints="NO" id="B5M-B7-LqW">
+                    <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="Hdf-bc-L8f" customClass="AsyncImageView" customModule="Flickr" customModuleProvider="target">
                         <rect key="frame" x="0.0" y="0.0" width="50" height="50"/>
-                    </imageView>
+                        <subviews>
+                            <activityIndicatorView opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="750" verticalHuggingPriority="750" hidesWhenStopped="YES" animating="YES" style="gray" translatesAutoresizingMaskIntoConstraints="NO" id="7sl-IP-JQf">
+                                <rect key="frame" x="15" y="15" width="20" height="20"/>
+                            </activityIndicatorView>
+                        </subviews>
+                        <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                        <constraints>
+                            <constraint firstItem="7sl-IP-JQf" firstAttribute="centerX" secondItem="Hdf-bc-L8f" secondAttribute="centerX" id="2Lb-cF-fse"/>
+                            <constraint firstItem="7sl-IP-JQf" firstAttribute="centerY" secondItem="Hdf-bc-L8f" secondAttribute="centerY" id="8NZ-FS-ZLj"/>
+                        </constraints>
+                    </view>
                 </subviews>
             </view>
             <constraints>
-                <constraint firstItem="B5M-B7-LqW" firstAttribute="leading" secondItem="gTV-IL-0wX" secondAttribute="leading" id="Fxm-mW-aZm"/>
-                <constraint firstAttribute="bottom" secondItem="B5M-B7-LqW" secondAttribute="bottom" id="U2j-8d-1c0"/>
-                <constraint firstItem="B5M-B7-LqW" firstAttribute="top" secondItem="gTV-IL-0wX" secondAttribute="top" id="iOb-Q4-fRk"/>
-                <constraint firstAttribute="trailing" secondItem="B5M-B7-LqW" secondAttribute="trailing" id="xIA-zL-Gx3"/>
+                <constraint firstAttribute="trailing" secondItem="Hdf-bc-L8f" secondAttribute="trailing" id="7Or-cH-8LA"/>
+                <constraint firstItem="Hdf-bc-L8f" firstAttribute="top" secondItem="gTV-IL-0wX" secondAttribute="top" id="9Qa-dd-o36"/>
+                <constraint firstItem="Hdf-bc-L8f" firstAttribute="leading" secondItem="gTV-IL-0wX" secondAttribute="leading" id="hJ7-tD-ZJO"/>
+                <constraint firstAttribute="bottom" secondItem="Hdf-bc-L8f" secondAttribute="bottom" id="sQU-9a-k8c"/>
             </constraints>
             <viewLayoutGuide key="safeArea" id="ZTg-uK-7eu"/>
             <connections>
-                <outlet property="imageView" destination="B5M-B7-LqW" id="pLX-uK-hRi"/>
+                <outlet property="activityIndicatorView" destination="7sl-IP-JQf" id="eXk-Fz-z9B"/>
+                <outlet property="imageView" destination="Hdf-bc-L8f" id="LSN-yg-2eb"/>
             </connections>
             <point key="canvasLocation" x="52.799999999999997" y="48.575712143928037"/>
         </collectionViewCell>
